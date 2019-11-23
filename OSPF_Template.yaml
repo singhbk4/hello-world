@@ -1,0 +1,20 @@
+---
+- name: Configure OSPF
+  hosts: Router
+  gather_facts: no
+  connection: network_cli
+
+  tasks:
+    - name: Configure OSPF on multiple routers
+      ios_config:
+        save_when: modified
+        lines:
+          - network 0.0.0.0 0.0.0.0 area 0
+          - distance 50
+          - default-information originate
+        parents: router ospf 1
+      register: output
+
+    - name: printing at the console
+      debug: var=output
+...
