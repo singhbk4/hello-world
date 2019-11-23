@@ -1,0 +1,11 @@
+---
+- name: Config back of IOS devices
+  hosts: Routers
+  gather_facts: false
+  connection: network_cli
+  
+  tasks:
+    - name: Config backup
+      ios_config:
+        backup: yes
+        
