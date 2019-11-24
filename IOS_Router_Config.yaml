@@ -1,0 +1,144 @@
+---
+- name: configure top level configuration
+  ios_config:
+    lines: hostname {{ inventory_hostname }}
+
+- name: configure interface settings
+  ios_config:
+    lines:
+      - description test interface
+      - ip address 172.31.1.1 255.255.255.0
+    parents: interface Ethernet1
+
+- name: Create VLAN's on CISCO Switches
+  ios_config:
+    lines:
+      - vlan 20
+      - vlan 30
+      - vlan 40
+      - ntp server 1.2.3.4
+
+- name: Settings interfaces with VLAN (Access ports)
+  ios_config:
+    lines:
+      - switchport mode access
+      - "switchport access vlan {{ item.vlan }}"
+      - swtichport port-security
+      - switchport port-security maximum 4
+      - switchport port-security violation shutdown
+    after:
+      - no shutdown
+    parents: "interface {{ item.interface }}"
+  loop:
+    - { interface: Ethernet 3, vlan: 10}
+    - { interface: Ethernet 4, vlan: 10}
+    - { interface: Ethernet 5, vlan: 20}
+    - { interface: Ethernet 6, vlan: 20}
+  register: output
+- name: Print ouput at the console
+  debug: var=output
+
+- name: Setting Trunk Port
+  ios_config:
+    save_when: modified
+    parents: "interface {{ item.interface }}"
+    lines:
+      - "switchport trunk allowed vlan add {{ item.vlan }}"
+      - switchport mode trunk
+  loop:
+    - { interface: Ethernet 2, vlan: 10,20}
+  register: output
+- name: Print output at the console
+  debug: var=output
+
+- name: Setting SVI
+  ios_config:
+    save_when: modified
+    parents: "interface {{ item.interface }}"
+    lines:
+      - "ip address {{ item.ip }]"
+  loop:
+    - { interface: vlan 10, ip: 192.168.10.10/24}
+    - { interface: vlan 20, ip: 192.168.20.20/24}
+  register: output
+- name: Print output at the console
+  debut: var=output
+
+- name: configure ip helpers on multiple interfaces
+  ios_config:
+    lines:
+      - ip helper-address 172.26.1.10
+      - ip helper-address 172.26.3.8
+    parents: "{{ item }}"
+  with_items:
+    - interface Ethernet1
+    - interface Ethernet2
+    - interface GigabitEthernet1
+
+- name: configure policer in Scavenger class
+  ios_config:
+    lines:
+      - conform-action transmit
+      - exceed-action drop
+    parents:
+      - policy-map Foo
+      - class Scavenger
+      - police cir 64000
+
+- name: load new acl into device
+  ios_config:
+    lines:
+      - 10 permit ip host 192.0.2.1 any log
+      - 20 permit ip host 192.0.2.2 any log
+      - 30 permit ip host 192.0.2.3 any log
+      - 40 permit ip host 192.0.2.4 any log
+      - 50 permit ip host 192.0.2.5 any log
+    parents: ip access-list extended test
+    before: no ip access-list extended test
+    match: exact
+
+- name: check the running-config against master config
+  ios_config:
+    diff_against: intended
+    intended_config: "{{ lookup('file', 'master.cfg') }}"
+
+- name: check the startup-config against the running-config
+  ios_config:
+    diff_against: startup
+    diff_ignore_lines:
+      - ntp clock .*
+
+- name: save running to startup when modified
+  ios_config:
+    save_when: modified
+
+- name: for idempotency, use full-form commands
+  ios_config:
+    lines:
+      # - shut
+      - shutdown
+    # parents: int gig1/0/11
+    parents: interface GigabitEthernet1/0/11
+
+# Set boot image based on comparison to a group_var (version) and the version
+# that is returned from the `ios_facts` module
+- name: SETTING BOOT IMAGE
+  ios_config:
+    lines:
+      - no boot system
+      - boot system flash bootflash:{{new_image}}
+    host: "{{ inventory_hostname }}"
+  when: ansible_net_version != version
+
+- name: render a Jinja2 template onto an IOS device
+  ios_config:
+    backup: yes
+    src: ios_template.j2
+
+- name: configurable backup path
+  ios_config:
+    src: ios_template.j2
+    backup: yes
+    backup_options:
+      filename: backup.cfg
+      dir_path: /home/user
