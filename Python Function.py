@@ -8,5 +8,7 @@ stdin, stdout, stderr = ssh_client.exec_command('sh version')
 output = stdout.read().decode()
 print(output)
 
+ssh_client.close()
+
 with open("Router_1.txt", "w") as f:
     f.write(output)
