@@ -23,6 +23,8 @@ time.sleep(3)
 output = remote_connection.recv(4096)
 print(output.decode())
 
+ssh_client.close()
+
 
 
 
